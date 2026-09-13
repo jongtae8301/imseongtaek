@@ -38,7 +38,7 @@ it('잘못된 모양·문자·범위·벽 위 끝점을 거절한다', () => {
   for (const start of ['2,2', '0,1', '1,01', '9,9'])
     expect(() => validateMaze({ ...input, start })).toThrow('출발과 출구');
 });
-it('격자 큐는 49개를 FIFO로 저장하고 일반 조작 큐의 8개 제한은 유지한다', () => {
+it('격자 큐는 49개를 FIFO로 저장하고 일반 조작 큐의 12개 제한과 구분한다', () => {
   let queue = createTraversalQueue(49);
   for (let value = 0; value < 49; value++)
     queue = applyLinearCommand(queue, { type: 'insert', value }).state;
@@ -50,7 +50,7 @@ it('격자 큐는 49개를 FIFO로 저장하고 일반 조작 큐의 8개 제한
   }
   expect(queue.items).toEqual([]);
   expect(() => createTraversalQueue(316)).toThrow();
-  expect(() => createLinearState('queue', 9)).toThrow();
+  expect(() => createLinearState('queue', 13)).toThrow();
   const large = createTraversalQueue(315);
   expect(applyLinearCommand(large, { type: 'insert', value: 314 }).state.items).toEqual([314]);
   expect(() => applyLinearCommand(large, { type: 'insert', value: 315 })).toThrow();
