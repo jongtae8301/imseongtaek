@@ -69,7 +69,7 @@ test('예제 설정과 입력 검증은 접근 가능하고 표시 전환은 재
   await expect(page.getByRole('alert')).toContainText('정수');
 });
 
-test('그래프·트리 거리·직접 조작은 간단한 화면에서 연결된다', async ({ page }) => {
+test('그래프·트리 탐색·직접 조작은 간단한 화면에서 연결된다', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '그래프와 탐색', exact: true }).click();
   await next(page, 5);
@@ -80,13 +80,14 @@ test('그래프·트리 거리·직접 조작은 간단한 화면에서 연결�
     fullPage: true,
   });
   await page.getByRole('button', { name: '트리와 탐색', exact: true }).click();
-  await page.getByRole('button', { name: '거리·공통 조상', exact: true }).click();
+  await expect(page.getByRole('button', { name: '거리·공통 조상', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: '트리 활동 선택', exact: true })).toHaveCount(0);
   await next(page, 6);
   await showPanel(page, '현재 상태');
-  await expect(page.locator('[data-distance-a]')).toContainText('D → B');
-  await expect(page.locator('[data-distance-count]')).toHaveText('0개 간선');
+  await expect(page.locator('[data-current-vertex]')).toHaveText('A');
+  await expect(page.locator('[data-visit-order]')).toHaveText('A');
   await page.screenshot({
-    path: `test-results/${test.info().project.name}-simple-distance.png`,
+    path: `test-results/${test.info().project.name}-simple-tree.png`,
     fullPage: true,
   });
   await page.getByRole('button', { name: '큐와 스택', exact: true }).click();

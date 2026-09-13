@@ -124,7 +124,7 @@ test('DFS 콜 스택·방향키와 이웃 순서 변경 초기화', async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('단절·방향 그래프와 한도 도달은 도달 불가와 구분', async ({ page }) => {
+test('한도 설정 없이 단절·방향 그래프 탐색을 완료하고 도달 불가를 표시', async ({ page }) => {
   await page.goto('/');
   await prepareWorkspace(page);
   await page.getByRole('button', { name: '그래프와 탐색' }).click();
@@ -133,17 +133,15 @@ test('단절·방향 그래프와 한도 도달은 도달 불가와 구분', asy
   await end(page);
   await expect(page.locator('[data-target-path]')).toHaveText('도달 불가');
   await expect(page.locator('.run-summary')).toContainText('정상 종료');
-  await page.getByRole('combobox', { name: '실행 한도', exact: true }).selectOption('10');
-  await apply(page);
-  await end(page);
-  await expect(page.locator('.run-summary')).toContainText('한도 도달');
-  await expect(page.locator('[data-target-path]')).toHaveText('아직 없음');
+  await expect(page.getByRole('combobox', { name: '실행 한도', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'BFS·DFS 결과 비교', exact: true }).click();
-  await expect(page.locator('[data-comparison="bfs"]')).toContainText('한도 도달 · 미완료');
+  for (const algorithm of ['bfs', 'dfs']) {
+    await expect(page.locator(`[data-comparison="${algorithm}"]`)).toContainText('정상 종료');
+    await expect(page.locator(`[data-comparison="${algorithm}"]`)).toContainText('도달 불가');
+  }
   await page.getByRole('button', { name: '방향 그래프', exact: true }).click();
   await expect(page.locator('[data-comparison]')).toHaveCount(0);
-  await page.getByRole('combobox', { name: '실행 한도', exact: true }).selectOption('500');
   await page.getByRole('combobox', { name: '시작 정점', exact: true }).selectOption('D');
   await page.getByRole('combobox', { name: '목표 정점', exact: true }).selectOption('A');
   await apply(page);
