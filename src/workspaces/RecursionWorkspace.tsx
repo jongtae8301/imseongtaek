@@ -36,7 +36,6 @@ export function RecursionWorkspace() {
   const [input, setInput] = useState('4');
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
-  const [maxSteps, setMaxSteps] = useState(0);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const positions = useRef<Record<FunctionMethod, number>>({ recursive: 0, iterative: 0 });
   const example = functionExamples[problem];
@@ -55,7 +54,7 @@ export function RecursionWorkspace() {
       player.load(null);
       return;
     }
-    player.load(buildFunctionRun(problem, method, parsed.n, maxSteps ? { maxSteps } : {}));
+    player.load(buildFunctionRun(problem, method, parsed.n));
     setInput(String(parsed.n));
     setError('');
     setDirty(false);
@@ -112,7 +111,6 @@ export function RecursionWorkspace() {
                   invalidate();
                   setProblem(next);
                   setMethod('recursive');
-                  setMaxSteps(0);
                   setInput(String(functionExamples[next].defaultInput));
                 }}
               >
@@ -125,8 +123,8 @@ export function RecursionWorkspace() {
               <span>{example.lesson.origin}</span>
             </div>
           </div>
-          <div className="function-settings">
-            {problem !== 'scope' && (
+          {problem !== 'scope' && (
+            <div className="function-settings">
               <label>
                 실행 방식
                 <select
@@ -140,22 +138,8 @@ export function RecursionWorkspace() {
                   <option value="iterative">반복</option>
                 </select>
               </label>
-            )}
-            <label>
-              실행 한도
-              <select
-                value={maxSteps}
-                onChange={(e) => {
-                  invalidate();
-                  setMaxSteps(Number(e.target.value));
-                }}
-              >
-                <option value={0}>예제 기본 한도</option>
-                <option value={50}>50단계 · 중단 관찰</option>
-                <option value={20}>20단계 · 중단 관찰</option>
-              </select>
-            </label>
-          </div>
+            </div>
+          )}
           <div className="input-controls">
             <label htmlFor="input-n">
               입력값 <code>n</code>

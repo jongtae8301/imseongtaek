@@ -36,7 +36,6 @@ export function TreeDistanceWorkspace({ activityControl }: { activityControl: Re
   const [from, setFrom] = useState('D');
   const [to, setTo] = useState('E');
   const [method, setMethod] = useState<DistanceMethod>('depth');
-  const [maxSteps, setMaxSteps] = useState(100);
   const [selected, setSelected] = useState('D');
   const [rawPending, setRawPending] = useState(false);
   const [error, setError] = useState('');
@@ -56,7 +55,7 @@ export function TreeDistanceWorkspace({ activityControl }: { activityControl: Re
   }
   function apply() {
     try {
-      player.load(buildTreeDistanceRun({ graph, root, from, to, method, maxSteps }));
+      player.load(buildTreeDistanceRun({ graph, root, from, to, method }));
       setError('');
     } catch (err) {
       player.load(null);
@@ -132,19 +131,6 @@ export function TreeDistanceWorkspace({ activityControl }: { activityControl: Re
                 </select>
               </label>
             ))}
-            <label>
-              실행 한도
-              <select
-                value={maxSteps}
-                onChange={(e) => {
-                  invalidate();
-                  setMaxSteps(Number(e.target.value));
-                }}
-              >
-                <option value={100}>100단계 · 기본</option>
-                <option value={10}>10단계 · 중단 관찰</option>
-              </select>
-            </label>
             <button className="primary-button" disabled={rawPending} onClick={apply}>
               거리 계산 준비
             </button>
