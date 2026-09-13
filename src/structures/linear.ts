@@ -7,6 +7,7 @@ export interface LinearState {
   readonly capacity: number;
   readonly items: readonly number[];
   readonly removedValues: readonly number[];
+  readonly valueRange?: readonly [number, number];
 }
 export const LINEAR_CAPACITY = 6;
 export const MAX_OPERATIONS = 40;
@@ -30,11 +31,11 @@ export function createLinearState(mode: LinearMode, capacity = LINEAR_CAPACITY):
   return { mode, capacity, items: [], removedValues: [] };
 }
 
-/** 격자 탐색 전용: 최대 49칸의 인덱스를 저장하되 삽입·삭제는 같은 순수 전이를 쓴다. */
+/** 격자 탐색 전용: 최대 315칸의 인덱스를 저장하되 삽입·삭제는 같은 순수 전이를 쓴다. */
 export function createTraversalQueue(capacity: number): LinearState {
-  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 49)
-    throw new RangeError('탐색 큐 용량은 1부터 49까지여야 합니다.');
-  return { mode: 'queue', capacity, items: [], removedValues: [] };
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 315)
+    throw new RangeError('탐색 큐 용량은 1부터 315까지여야 합니다.');
+  return { mode: 'queue', capacity, items: [], removedValues: [], valueRange: [0, capacity - 1] };
 }
 
 /** 직접 조작과 예제 실행이 공유하는 순수 전이. 포인터와 반환 순서의 유일한 기준이다. */
@@ -44,11 +45,14 @@ export function applyLinearCommand(
 ): { state: LinearState; transition: SequenceTransition } {
   if (command.type !== 'insert' && command.type !== 'remove')
     throw new RangeError('지원하지 않는 연산입니다.');
+  const [minValue, maxValue] = state.valueRange ?? [-99, 99];
   if (
     command.type === 'insert' &&
-    (!Number.isInteger(command.value) || Math.abs(command.value) > 99)
+    (!Number.isInteger(command.value) || command.value < minValue || command.value > maxValue)
   )
-    throw new RangeError('값은 −99부터 99까지의 정수여야 합니다.');
+    throw new RangeError(
+      `값은 ${minValue === -99 ? '−99' : minValue}부터 ${maxValue}까지의 정수여야 합니다.`,
+    );
   const before = [...state.items];
   const transition: SequenceTransition = {
     action: command.type,

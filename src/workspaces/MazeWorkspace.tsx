@@ -2,16 +2,19 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { mazeLesson } from '../examples/maze-search';
 import { editMaze, mazeSamples, type Maze, type MazeTool } from '../structures/maze';
 import { createPlayer } from '../player/controller';
-import { buildMazeComparison, type MazeComparison, type MazeRuns } from '../player/maze-comparison';
+import type { MazeComparison } from '../player/maze-comparison';
 import { MazeBoard } from '../components/MazeBoard';
 
-const initialMaze = mazeSamples.detour!.maze;
+const initialMaze = mazeSamples.studio!.maze;
 type Intent = 'ready' | 'play' | 'next' | 'result';
 
 export function MazeWorkspace({ activityControl }: { activityControl: ReactNode }) {
   const [maze, setMaze] = useState<Maze>(initialMaze);
-  const [sample, setSample] = useState('detour');
-  const [tool, setTool] = useState<MazeTool>('wall');
+  const [sample, setSample] = useState('studio');
+  const mazeRef = useRef(maze);
+  const history = useRef<{ past: Maze[]; future: Maze[] }>({ past: [], future: [] });
+  const gesture = useRef<{ before: Maze; saved: boolean } | null>(null);
+  const [interactionKey, setInteractionKey] = useState(0);
   const [reverse, setReverse] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('미로를 고치거나 두 탐색을 시작해 보세요.');
@@ -46,14 +49,14 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
         setError(message);
         setNotice('다시 탐색을 시작해 주세요.');
       };
-      job.onmessage = (event: MessageEvent<{ runs?: MazeRuns; error?: string }>) => {
+      job.onmessage = (event: MessageEvent<{ comparison?: MazeComparison; error?: string }>) => {
         if (worker.current !== job) return;
-        if (!event.data.runs) {
+        if (!event.data.comparison) {
           fail(event.data.error ?? '탐색을 준비하지 못했습니다.');
           return;
         }
         try {
-          const comparison = buildMazeComparison(event.data.runs);
+          const comparison = event.data.comparison;
           job.terminate();
           worker.current = null;
           setBusy(false);
@@ -97,25 +100,71 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
       player.play();
     }
   }
-  function changeCell(vertex: string) {
+  function remember(before: Maze) {
+    history.current.past = [...history.current.past.slice(-49), before];
+    history.current.future = [];
+  }
+  function setInput(next: Maze, message: string) {
+    invalidate();
+    mazeRef.current = next;
+    setMaze(next);
+    setSample('custom');
+    setNotice(message);
+  }
+  function undo(redo = false) {
+    const from = redo ? history.current.future : history.current.past;
+    const next = from.pop();
+    if (!next) return;
+    (redo ? history.current.past : history.current.future).push(mazeRef.current);
+    gesture.current = null;
+    setInteractionKey((key) => key + 1);
+    setInput(next, redo ? '편집을 다시 적용했습니다.' : '마지막 편집을 되돌렸습니다.');
+  }
+  function replaceMaze(next: Maze, message: string) {
+    remember(mazeRef.current);
+    gesture.current = null;
+    setInteractionKey((key) => key + 1);
+    setInput(next, message);
+  }
+  function changeCells(vertices: string[], tool: MazeTool) {
     try {
-      const next = editMaze(maze, vertex, tool);
-      if (JSON.stringify(next) === JSON.stringify(maze)) return;
-      invalidate();
-      setMaze(next);
-      setSample('custom');
-      setNotice('미로를 바꿨습니다. 같은 미로로 다시 비교해 보세요.');
+      const before = mazeRef.current;
+      const next = vertices.reduce((current, vertex) => editMaze(current, vertex, tool), before);
+      if (JSON.stringify(next) === JSON.stringify(before)) return;
+      if (!gesture.current) remember(before);
+      else if (!gesture.current.saved) {
+        remember(gesture.current.before);
+        gesture.current.saved = true;
+      }
+      setInput(next, '미로를 바꿨습니다. 같은 미로로 다시 비교해 보세요.');
     } catch (err) {
       setError((err as Error).message);
     }
   }
   return (
-    <main id="workspace" className="maze-lab">
-      <div className="maze-heading">
-        <h1>같은 미로, 다른 탐색</h1>
-        <p>벽을 바꿔 보세요. BFS와 DFS는 어떤 길을 찾을까요?</p>
+    <main
+      id="workspace"
+      className="maze-lab"
+      onKeyDown={(event) => {
+        if (
+          !(event.ctrlKey || event.metaKey) ||
+          event.altKey ||
+          (event.target as HTMLElement).closest('input, textarea, select')
+        )
+          return;
+        if (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y') {
+          event.preventDefault();
+          undo(event.shiftKey || event.key.toLowerCase() === 'y');
+        }
+      }}
+    >
+      <div className="maze-topline">
+        <div className="maze-heading">
+          <h1>같은 미로, 다른 탐색</h1>
+          <p>직접 길을 만들고, 두 탐색이 찾는 경로를 비교해 보세요.</p>
+        </div>
+        {activityControl}
       </div>
-      {activityControl}
       <section className="maze-edit-bar" aria-label="미로 편집 도구">
         <label className="maze-sample">
           미로 예제
@@ -124,10 +173,8 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
             onChange={(event) => {
               const key = event.target.value,
                 next = mazeSamples[key]!.maze;
-              invalidate();
-              setMaze(next);
+              replaceMaze(next, '새 미로입니다. 경로를 예상한 뒤 비교해 보세요.');
               setSample(key);
-              setNotice('새 미로입니다. 경로를 예상한 뒤 비교해 보세요.');
             }}
           >
             {Object.entries(mazeSamples).map(([key, item]) => (
@@ -140,22 +187,46 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
             </option>
           </select>
         </label>
-        <div className="graph-tools" role="group" aria-label="그리기 도구">
-          {(
-            [
-              ['wall', '벽 놓기'],
-              ['erase', '길 열기'],
-              ['start', '출발 옮기기'],
-              ['target', '출구 옮기기'],
-            ] as const
-          ).map(([key, title]) => (
-            <button key={key} aria-pressed={tool === key} onClick={() => setTool(key)}>
-              {title}
-            </button>
-          ))}
+        <div className="maze-edit-actions">
+          <button disabled={!history.current.past.length} onClick={() => undo()} title="Ctrl+Z">
+            편집 되돌리기
+          </button>
+          <button
+            disabled={!history.current.future.length}
+            onClick={() => undo(true)}
+            title="Ctrl+Shift+Z"
+          >
+            편집 다시하기
+          </button>
+          <button
+            disabled={!maze.rows.some((row) => row.includes('#'))}
+            onClick={() =>
+              replaceMaze(
+                { ...maze, rows: maze.rows.map((row) => '.'.repeat(row.length)) },
+                '벽을 모두 지웠습니다. 직접 길을 만들어 보세요.',
+              )
+            }
+          >
+            벽 모두 지우기
+          </button>
         </div>
-        <p>어느 쪽 미로를 고쳐도 두 그림에 함께 반영됩니다.</p>
+        <span className="maze-size">
+          {maze.rows.length} × {maze.rows[0]!.length}
+        </span>
       </section>
+      <div className="maze-edit-hints" id="maze-edit-help">
+        <span>
+          <strong>클릭</strong> 벽 켜기·끄기
+        </span>
+        <span>
+          <strong>드래그</strong> 첫 칸이 길이면 생성, 벽이면 삭제
+        </span>
+        <span>
+          <strong className="maze-key">S</strong> 출발 · <strong className="maze-key">G</strong>{' '}
+          도착은 끌어서 이동
+        </span>
+        <span>양쪽 미로가 함께 바뀝니다.</span>
+      </div>
       <div className="maze-compare-controls" role="group" aria-label="미로 비교 재생">
         <div className="maze-transport">
           <button
@@ -249,8 +320,15 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
                 maze={maze}
                 step={step}
                 label={key.toUpperCase() + ' 비교 미로'}
-                onCell={changeCell}
-                comparison
+                onEdit={changeCells}
+                onEditStart={() => {
+                  gesture.current = { before: mazeRef.current, saved: false };
+                  player.pause();
+                }}
+                onEditEnd={() => {
+                  gesture.current = null;
+                }}
+                interactionKey={interactionKey}
               />
               <dl className="maze-score">
                 <div>
@@ -287,7 +365,7 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
       </section>
       <div className="maze-lab-foot">
         <p className="maze-legend">
-          S 출발 · G 출구 · × 벽 · + 발견한 칸 · ● 새로 발견 · 녹색 숫자: 출구 경로의 이동 순서
+          S 출발 · G 도착 · 진한 칸: 벽 · + 발견한 칸 · ● 새로 발견 · 녹색 숫자: 경로의 이동 순서
         </p>
         <p>
           새 칸을 하나씩 발견하는 장면을 나란히 보여 줍니다. 출구를 찾은 쪽은 멈추며, 재생 속도는
@@ -311,12 +389,17 @@ export function MazeWorkspace({ activityControl }: { activityControl: ReactNode 
           </select>
         </label>
         <p>
-          방향키로 칸을 이동하고 Enter·Space로 수정할 수 있습니다. 편집하면 두 탐색을 멈추고 기록을
-          초기화합니다.
+          방향키로 칸을 선택하고 Enter·Space로 벽을 켜고 끕니다. Delete는 지우기, S는 출발, G는 도착
+          옮기기입니다. 끝점 드래그는 놓을 때 적용되며 Esc 또는 미로 밖에 놓으면 취소됩니다. 끝점이
+          겹쳤을 때 Shift를 누르고 끌면 도착점을 옮깁니다.
         </p>
         <p>
-          가로·세로 최대 7칸, 상하좌우 이동만 가능합니다. 두 탐색은 같은 출발·출구·이웃 순서를
-          사용합니다.
+          가로 최대 21칸·세로 최대 15칸, 상하좌우 이동만 가능합니다. 두 탐색은 같은 출발·도착·이웃
+          순서를 사용합니다. 작은 화면에서는 작은 미로 예제로 더 큰 칸을 사용할 수 있습니다.
+        </p>
+        <p>
+          편집은 최근 50개 작업까지 되돌립니다. 드래그 한 번은 한 작업입니다. Ctrl+Z로 되돌리고
+          Ctrl+Shift+Z로 다시 적용합니다. 편집·되돌리기는 탐색 기록을 초기화합니다.
         </p>
         <p>
           벽 하나를 열거나 출구를 옮긴 뒤, 발견한 칸 수와 경로 길이가 어떻게 달라질지 예상하고

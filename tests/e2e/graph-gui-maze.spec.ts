@@ -16,6 +16,7 @@ async function maze(page: Page) {
   await page.getByRole('button', { name: '그래프와 탐색', exact: true }).click();
   await page.getByRole('button', { name: '미로 BFS·DFS', exact: true }).click();
   await expect(page.getByRole('button', { name: '같이 탐색', exact: true })).toBeEnabled();
+  await page.getByRole('combobox', { name: '미로 예제', exact: true }).selectOption('detour');
 }
 
 test('그림의 정점·간선 편집 ↔ 행렬·리스트 동기화와 미적용 문자 보호', async ({ page }) => {
@@ -142,7 +143,6 @@ test('어느 그림의 편집도 양쪽에 적용하고 키보드·끝점 보호
     '3행 2열 · 벽',
   );
   await expect(page.locator('[data-maze-discoveries]')).toHaveText(['0칸', '0칸']);
-  await page.getByRole('button', { name: '길 열기', exact: true }).click();
   await right.getByRole('button', { name: /^3행 1열/ }).focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
@@ -150,19 +150,17 @@ test('어느 그림의 편집도 양쪽에 적용하고 키보드·끝점 보호
     'aria-label',
     '3행 2열 · 미발견',
   );
-  await page.getByRole('button', { name: '출구 옮기기', exact: true }).click();
-  await right.getByRole('button', { name: /^3행 1열/ }).click();
+  await right.getByRole('button', { name: /^3행 1열/ }).press('g');
   await page.getByRole('button', { name: '결과 비교', exact: true }).click();
   await expect(page.locator('[data-maze-route]')).toHaveText(['0회 이동', '0회 이동']);
-  await page.getByRole('button', { name: '출발 옮기기', exact: true }).click();
-  await left.getByRole('button', { name: /^1행 1열/ }).click();
+  await left.getByRole('button', { name: /^1행 1열/ }).press('s');
   await expect(right.getByRole('button', { name: /^1행 1열/ })).toHaveAttribute(
     'aria-label',
     '1행 1열 · 출발 · 미발견',
   );
-  await page.getByRole('button', { name: '벽 놓기', exact: true }).click();
   await right.getByRole('button', { name: /^1행 1열/ }).click();
-  await expect(page.getByRole('alert')).toContainText('출발·출구');
+  await expect(right.getByRole('button', { name: /^1행 1열/ })).toHaveClass(/is-start/);
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.locator('[data-maze-discoveries]')).toHaveText(['0칸', '0칸']);
 });
 

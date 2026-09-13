@@ -27,6 +27,7 @@ export interface SearchInput {
   treeRoot?: string;
   maxSteps?: number;
   maze?: Maze;
+  recording?: 'full' | 'discoveries';
 }
 
 function sourceCode(
@@ -103,6 +104,8 @@ function sourceCode(
 /** 탐색 자체와 모든 파생 상태를 여기에서 계산한다. UI에는 불변 Step만 전달한다. */
 export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): ExecutionRun {
   const maze = input.maze ? validateMaze(input.maze) : undefined;
+  const compact = input.recording === 'discoveries';
+  if (compact && !maze) throw new Error('발견 장면 기록은 미로 비교에서만 사용합니다.');
   if (
     maze &&
     (input.start !== maze.start || input.target !== maze.target || input.treeRoot !== undefined)
@@ -118,7 +121,7 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
     throw new Error('시작과 목표는 등록된 정점 중에서 선택해 주세요.');
   const tree = input.treeRoot === undefined ? null : treeInfo(graph, input.treeRoot);
   const stepLimit = maze ? 2000 : 500;
-  const capacity = maze ? 49 : 8;
+  const capacity = maze ? maze.rows.length * maze.rows[0]!.length : 8;
   const maxSteps = input.maxSteps ?? stepLimit;
   if (!Number.isInteger(maxSteps) || maxSteps < 2 || maxSteps > stepLimit)
     throw new Error(`실행 한도는 2–${stepLimit}단계여야 합니다.`);
@@ -138,9 +141,14 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
       target: input.target,
       reverse: input.reverse,
       treeRoot: input.treeRoot ?? null,
-      ...(maze ? { maze: { rows: maze.rows, start: maze.start, target: maze.target } } : {}),
+      ...(maze
+        ? {
+            maze: { rows: maze.rows, start: maze.start, target: maze.target },
+            recording: compact ? 'discoveries' : 'full',
+          }
+        : {}),
     },
-    algorithmVersion: '1.0.0',
+    algorithmVersion: maze ? '1.1.0' : '1.0.0',
     code: { id: codeId, language: 'python', lines },
     lineMap,
     neighborOrder: maze
@@ -151,7 +159,13 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
         ? [...graph.vertices].reverse()
         : [...graph.vertices],
     stepSemantics: 'after-event',
-    limits: { maxSteps, maxDepth: capacity, maxInput: capacity, capacity },
+    limits: {
+      maxSteps,
+      maxDepth: capacity,
+      maxInput: capacity,
+      capacity,
+      ...(compact ? { maxOperations: 50000 } : {}),
+    },
     metricRules: {
       calls: '함수 호출: dfs 진입마다 1회. BFS 내장 메서드 호출은 펼치거나 합산하지 않습니다.',
       comparisons:
@@ -223,6 +237,7 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
   };
   let queue = createTraversalQueue(capacity);
   let last: Record<string, unknown> = {};
+  let operations = 0;
   const pathTo = (vertex: string | null): string[] => {
     if (vertex === null || !(vertex in search.parents)) return [];
     const path: string[] = [];
@@ -237,6 +252,20 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
     state.metrics[key] = (state.metrics[key] ?? 0) + 1;
   };
   function emit(event: StepEvent, key: string | null, explanation: string) {
+    // 같은 실행기의 사건을 집계하되, 코드 없는 비교에는 발견+부모가 갖춰진 장면만 저장한다.
+    // 저장하지 않는 사건도 실행 한도에 포함한다. 애니메이션 장면 수와 연산 수는 다르다.
+    if (compact && ++operations > 50000) recorder.limit('미로 탐색 실행 한도에 도달했습니다.');
+    state.metrics.maxSize = Math.max(
+      state.metrics.maxSize ?? 0,
+      algorithm === 'bfs' ? queue.items.length : state.frames.length,
+    );
+    if (
+      compact &&
+      event !== 'initial' &&
+      event !== 'complete' &&
+      !(algorithm === 'bfs' ? key === 'parent' || key === 'parent-start' : event === 'discover')
+    )
+      return;
     state.source = key ? { codeId, line: lineMap[key]! } : null;
     if (event !== 'return') {
       state.returnInfo = null;
@@ -334,9 +363,11 @@ export function buildSearchRun(algorithm: SearchAlgorithm, input: SearchInput): 
             description: `전역 ${name} 변경`,
           });
       }
-      const previousFrames = last.frames as StepState['frames'];
+      const previousFrames = new Map(
+        (last.frames as StepState['frames']).map((frame) => [frame.id, frame]),
+      );
       for (const frame of state.frames) {
-        const previousFrame = previousFrames.find((f) => f.id === frame.id);
+        const previousFrame = previousFrames.get(frame.id);
         for (const scope of ['parameters', 'locals'] as const)
           for (const [name, item] of Object.entries(frame[scope])) {
             const before = previousFrame?.[scope][name] ?? unset();

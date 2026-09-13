@@ -6,6 +6,9 @@ export interface Maze {
   target: string;
 }
 export type MazeTool = 'wall' | 'erase' | 'start' | 'target';
+export const MAZE_MAX_ROWS = 15;
+export const MAZE_MAX_COLUMNS = 21;
+export const MAZE_MAX_CELLS = MAZE_MAX_ROWS * MAZE_MAX_COLUMNS;
 export const MAZE_DIRECTIONS = [
   [-1, 0],
   [0, 1],
@@ -19,17 +22,19 @@ export function validateMaze(maze: Maze): Maze {
   if (
     !Array.isArray(rows) ||
     rows.length < 2 ||
-    rows.length > 7 ||
+    rows.length > MAZE_MAX_ROWS ||
     rows.some(
       (row) =>
         typeof row !== 'string' ||
         row.length < 2 ||
-        row.length > 7 ||
+        row.length > MAZE_MAX_COLUMNS ||
         row.length !== rows[0]!.length ||
         !/^[.#]+$/.test(row),
     )
   )
-    throw new Error('미로는 가로·세로 2–7칸의 직사각형이어야 하며 .(길), #(벽)만 쓸 수 있습니다.');
+    throw new Error(
+      '미로는 세로 2–15칸, 가로 2–21칸의 직사각형이어야 하며 .(길), #(벽)만 쓸 수 있습니다.',
+    );
   const open = new Set(
     rows.flatMap((row, r) => [...row].flatMap((cell, c) => (cell === '.' ? [cellId(r, c)] : []))),
   );
@@ -84,6 +89,14 @@ export function editMaze(input: Maze, vertex: string, tool: MazeTool): Maze {
 }
 
 export const mazeSamples: Record<string, { title: string; maze: Maze }> = {
+  studio: {
+    title: '갈림길 미로 · 9 × 13',
+    maze: {
+      rows: Array.from({ length: 9 }, (_, r) => (r % 2 ? '.#####.#####.' : '.............')),
+      start: '5,1',
+      target: '5,13',
+    },
+  },
   detour: {
     title: '갈림길과 돌아가는 길',
     maze: {
@@ -103,5 +116,9 @@ export const mazeSamples: Record<string, { title: string; maze: Maze }> = {
   blank: {
     title: '빈 미로 · 직접 만들기',
     maze: { rows: Array<string>(7).fill('.......'), start: '1,1', target: '7,7' },
+  },
+  large: {
+    title: '넓은 빈 미로 · 15 × 21',
+    maze: { rows: Array<string>(15).fill('.'.repeat(21)), start: '8,2', target: '8,20' },
   },
 };
