@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ObservationControls,
   ObservationPanels,
@@ -32,6 +32,7 @@ export function LinearWorkspace() {
   const [interaction, setInteraction] = useState<Interaction>('direct');
   const [commands, setCommands] = useState<readonly LinearCommand[]>([]);
   const [input, setInput] = useState('1');
+  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const lesson = linearLessons[mode];
   const atEnd = index === (run?.steps.length ?? 1) - 1;
@@ -50,13 +51,14 @@ export function LinearWorkspace() {
     );
   }
   function operate(command: LinearCommand) {
-    if (!canOperate) return;
+    if (!canOperate) return false;
     const nextCommands = [...commands, command];
     const nextRun = buildLinearRun(mode, nextCommands, { direct: true });
     setCommands(nextCommands);
     setError('');
     player.load(nextRun);
     player.seek(nextRun.steps.length - 1);
+    return nextRun.steps.at(-1)?.event === command.type;
   }
   function insert() {
     if (!canOperate) return;
@@ -65,7 +67,10 @@ export function LinearWorkspace() {
       setError(parsed.error);
       return;
     }
-    operate({ type: 'insert', value: parsed.value });
+    if (operate({ type: 'insert', value: parsed.value })) {
+      setInput('');
+      inputRef.current?.focus({ preventScroll: true });
+    }
   }
   return (
     <>
@@ -110,6 +115,7 @@ export function LinearWorkspace() {
               >
                 <label htmlFor="linear-value">삽입할 값</label>
                 <input
+                  ref={inputRef}
                   id="linear-value"
                   type="text"
                   inputMode="text"
