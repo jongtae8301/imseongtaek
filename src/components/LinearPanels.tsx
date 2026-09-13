@@ -144,7 +144,7 @@ export function LinearStatePanel({ step }: { step: Snapshot | null }) {
             </span>
           </div>
           <Values
-            label="마지막 삭제 결과를 저장한 전역 변수"
+            label="삽입 입력과 마지막 삭제 결과"
             items={step.globals}
             prefix="globals"
             step={step}
