@@ -64,7 +64,7 @@
 
 `GraphWorkspace`가 입력·단일 재생기를 소유하며 그래프/트리 메뉴 전환 시 해제합니다. 비교는 같은 입력의 두 ExecutionRun과 독립된 관찰 인덱스를 보존합니다. 최종 결과 카드는 각 실행의 마지막 Step, 과정 전환은 선택한 실행의 현재 Step을 사용합니다. 편집 미리보기는 GraphCanvas에 그래프 모델만 전달하며 실행 상태를 생성하지 않습니다. 그래프 입력·사건·집계와 제한은 [탐색 계약](GRAPH_TRAVERSAL.md)에 기록했습니다.
 
-`TreeWorkspace`는 관계·BFS/DFS와 거리·공통 조상 활동을 선택합니다. 활동 전환 시 작업 공간을 해제해 타이머와 기록을 초기화합니다. `TreeDistanceWorkspace`는 기존 GraphEditor·GraphCanvas·관계 표와 여섯 공통 패널을 재사용하며, 실행은 `examples/tree-distance.ts`가 맡습니다. 새 구조 계약과 입력·예제 추가 기준은 [트리 거리 계약](TREE_DISTANCE.md)을 따릅니다.
+`TreeWorkspace`는 `GraphWorkspace isTree`를 바로 표시합니다. 사용자 요청에 따라 거리·공통 조상 활동 선택과 실행 예제 등록을 제거했습니다. 이전 거리 구현 소스와 단위 검증은 참고용으로 보관하지만 앱에서 불러오지 않습니다. [이전 트리 거리 계약](TREE_DISTANCE.md)은 현재 제공 기능이 아닌 구현 기록입니다.
 
 ## 스타일과 접근성
 
