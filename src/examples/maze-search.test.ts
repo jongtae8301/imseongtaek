@@ -116,4 +116,44 @@ describe('미로의 독립적인 수작업 추적', () => {
     expect(run.steps[0]!.search!.discovered).toEqual([]);
     player.dispose();
   });
+  it.each(['bfs', 'dfs'] as const)(
+    '%s 발견 장면은 전체 기록의 해당 상태·경로·지표와 같다',
+    (algorithm) => {
+      for (const input of [square, mazeSamples.detour!.maze, mazeSamples.blocked!.maze]) {
+        const full = buildMazeRun(algorithm, input);
+        const compact = buildMazeRun(algorithm, input, false, 2000, 'discoveries');
+        for (const step of compact.steps) {
+          const expected = full.steps.find(
+            (s) =>
+              s.event === step.event &&
+              s.source?.line === step.source?.line &&
+              JSON.stringify(s.search) === JSON.stringify(step.search),
+          );
+          expect(expected).toBeDefined();
+          expect(step.metrics).toEqual(expected!.metrics);
+          expect(step.frames).toEqual(expected!.frames);
+        }
+        expect(exitMilestone(compact)?.search).toEqual(exitMilestone(full)?.search);
+      }
+    },
+  );
+  it.each(['bfs', 'dfs'] as const)(
+    '%s 최대 15×21 미로를 발견 장면만 기록해 끝까지 탐색한다',
+    (algorithm) => {
+      const run = buildMazeRun(algorithm, mazeSamples.large!.maze, false, 2000, 'discoveries');
+      expect(run.steps).toHaveLength(317); // 초기 + 315칸 발견 + 완료
+      expect(run.steps.at(-1)).toMatchObject({
+        status: 'completed',
+        metrics: { discoveries: 315, visits: 315, finished: 315, edgeScans: 1188 },
+      });
+      expect(new Set(run.steps.at(-1)!.search!.visitOrder).size).toBe(315);
+      expect(run.metadata.limits).toMatchObject({ maxInput: 315, maxOperations: 50000 });
+      if (algorithm === 'bfs') expect(exitMilestone(run)!.search!.targetPath).toHaveLength(19);
+    },
+  );
+  it('발견 장면에서도 낮은 실행 한도를 정상 완료로 표시하지 않는다', () => {
+    const run = buildMazeRun('bfs', square, false, 2, 'discoveries');
+    expect(run.steps).toHaveLength(2);
+    expect(run.steps.at(-1)!.status).toBe('limit-reached');
+  });
 });

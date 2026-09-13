@@ -7,6 +7,7 @@ export function buildMazeRun(
   input: Maze,
   reverse = false,
   maxSteps = 2000,
+  recording: 'full' | 'discoveries' = 'full',
 ) {
   const maze = validateMaze(input);
   return buildSearchRun(algorithm, {
@@ -16,6 +17,7 @@ export function buildMazeRun(
     reverse,
     maxSteps,
     maze,
+    recording,
   });
 }
 
