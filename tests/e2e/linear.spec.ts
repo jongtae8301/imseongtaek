@@ -116,3 +116,50 @@ test('같은 예제 입력의 FIFO/LIFO와 예제·모듈 교체 초기화', asy
   await expect(page.locator('[data-metric="calls"]')).toHaveText('0회');
   await expect(page.locator('[data-panel="state"]')).toHaveAttribute('data-step', '0');
 });
+
+for (const mode of ['queue', 'stack']) {
+  test(`${mode} 용량 선택이 코드·거절·예제에 적용되고 변경 시 재생과 기록을 초기화한다`, async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await prepareWorkspace(page);
+    await page.getByRole('button', { name: '큐와 스택' }).click();
+    await page.getByRole('combobox', { name: '자료구조 선택', exact: true }).selectOption(mode);
+    const capacity = page.getByRole('combobox', { name: '최대 용량', exact: true });
+    await expect(capacity).toHaveValue('6');
+    await capacity.selectOption('2');
+    const insert = page.getByRole('button', {
+      name: mode === 'queue' ? '삽입 · Enqueue' : '삽입 · Push',
+      exact: true,
+    });
+    for (const item of [1, 2, 3]) {
+      await page.getByRole('textbox', { name: '삽입할 값' }).fill(String(item));
+      await insert.click();
+    }
+    await expect(page.locator('[data-metric="inserts"]')).toHaveText('2회');
+    await expect(page.locator('.run-summary')).toContainText('용량 2개를 모두 사용');
+    await expect(page.getByRole('textbox', { name: '삽입할 값' })).toHaveValue('3');
+    await expect(page.locator('.source-code')).toContainText('CAPACITY = 2');
+    await page.getByRole('button', { name: '이전', exact: true }).click();
+    await expect(insert).toBeDisabled();
+    await capacity.selectOption('12');
+    await expect(page.locator('[data-panel="state"]')).toHaveAttribute('data-step', '0');
+    await expect(page.locator('[data-metric="inserts"]')).toHaveText('0회');
+    await expect(page.locator('.sequence-table tbody tr')).toHaveCount(12);
+    await expect(insert).toBeEnabled();
+    await page.getByRole('button', { name: '예제 실행', exact: true }).click();
+    await expect(capacity).toHaveValue('12');
+    await page.getByRole('button', { name: '자동 실행', exact: true }).click();
+    await capacity.selectOption('1');
+    await expect(page.getByRole('button', { name: '일시 정지', exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-panel="state"]')).toHaveAttribute('data-step', '0');
+    await page.getByRole('slider', { name: '실행 단계 이동' }).focus();
+    await page.keyboard.press('End');
+    await expect(page.locator('.run-summary')).toContainText('정상 종료');
+    await expect(page.locator('[data-removal-order]')).toHaveText('1');
+    await expect(page.locator('[data-metric="rejected"]')).toHaveText('6회');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+}
