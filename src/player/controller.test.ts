@@ -1,0 +1,91 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPlayer } from './controller';
+import { buildSumRun } from '../examples/sum-recursive';
+
+afterEach(() => vi.useRealTimers());
+describe('공통 재생기', () => {
+  it('이전 → 다음 왕복 시 모든 상태와 지표가 같은 스냅샷으로 복원된다', () => {
+    const run = buildSumRun(2);
+    const player = createPlayer(run);
+    player.seek(10);
+    const before = player.getSnapshot().run!.steps[player.getSnapshot().index];
+    player.previous();
+    player.next();
+    expect(player.getSnapshot().run!.steps[player.getSnapshot().index]).toBe(before);
+    player.reset();
+    expect(player.getSnapshot().index).toBe(0);
+  });
+  it('빈 실행과 처음/끝, 범위 밖 탐색을 안전하게 처리한다', () => {
+    const player = createPlayer();
+    player.play();
+    player.next();
+    player.previous();
+    expect(player.getSnapshot()).toMatchObject({ playing: false, index: 0 });
+    player.load({ ...buildSumRun(0), steps: [] });
+    player.play();
+    expect(player.getSnapshot().playing).toBe(false);
+    player.load(buildSumRun(0));
+    player.seek(-100);
+    expect(player.getSnapshot().index).toBe(0);
+    player.seek(999);
+    expect(player.getSnapshot().index).toBe(6);
+    player.next();
+    player.play();
+    expect(player.getSnapshot().playing).toBe(false);
+    player.seek(NaN);
+    expect(player.getSnapshot().index).toBe(6);
+  });
+  it('연속 자동 실행 요청이 타이머를 중복 생성하지 않는다', () => {
+    vi.useFakeTimers();
+    const player = createPlayer(buildSumRun(0));
+    player.play();
+    player.play();
+    player.play();
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(1000);
+    expect(player.getSnapshot().index).toBe(1);
+    player.pause();
+    vi.advanceTimersByTime(5000);
+    expect(player.getSnapshot().index).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('자동 실행 중 수동 이동과 새 실행 로드는 타이머를 중지한다', () => {
+    vi.useFakeTimers();
+    const player = createPlayer(buildSumRun(2));
+    player.play();
+    vi.advanceTimersByTime(2000);
+    player.previous();
+    expect(player.getSnapshot()).toMatchObject({ index: 1, playing: false });
+    expect(vi.getTimerCount()).toBe(0);
+    player.play();
+    player.load(buildSumRun(0));
+    vi.advanceTimersByTime(5000);
+    expect(player.getSnapshot()).toMatchObject({ index: 0, playing: false });
+    expect(player.getSnapshot().run!.metadata.input).toEqual({ n: 0 });
+    expect(player.getSnapshot().run!.steps[0]!.metrics.calls).toBe(0);
+  });
+  it('속도 변경 후에도 타이머가 하나이고 마지막 단계에서 멈춘다', () => {
+    vi.useFakeTimers();
+    const player = createPlayer(buildSumRun(0));
+    player.play();
+    player.setDelay(500);
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(500);
+    expect(player.getSnapshot().index).toBe(1);
+    vi.advanceTimersByTime(10000);
+    expect(player.getSnapshot()).toMatchObject({ index: 6, playing: false });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('입력 초기화와 dispose가 예약된 실행을 제거한다', () => {
+    vi.useFakeTimers();
+    const player = createPlayer(buildSumRun(2));
+    player.play();
+    player.load(null);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(player.getSnapshot().run).toBeNull();
+    player.load(buildSumRun(1));
+    player.play();
+    player.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.pnpm-store/
+test-results/
+playwright-report/
+tmp/
+*.local
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Reference originals stay local; only application files are published.
+*.pdf
+*.docx
