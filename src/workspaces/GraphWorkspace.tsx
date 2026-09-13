@@ -136,7 +136,6 @@ export function GraphWorkspace({
   const [target, setTarget] = useState('F');
   const [root, setRoot] = useState('A');
   const [reverse, setReverse] = useState(false);
-  const [maxSteps, setMaxSteps] = useState(500);
   const [selected, setSelected] = useState('A');
   const [rawPending, setRawPending] = useState(false);
   const [error, setError] = useState('');
@@ -166,7 +165,6 @@ export function GraphWorkspace({
       start,
       target: target || null,
       reverse,
-      maxSteps,
       ...(isTree ? { treeRoot: root } : {}),
     };
   }
@@ -306,20 +304,6 @@ export function GraphWorkspace({
               >
                 <option value="false">정점 순서대로</option>
                 <option value="true">정점 역순으로</option>
-              </select>
-            </label>
-            <label>
-              실행 한도
-              <select
-                value={maxSteps}
-                onChange={(e) => {
-                  invalidate();
-                  setMaxSteps(Number(e.target.value));
-                }}
-              >
-                <option value={500}>500단계 · 기본</option>
-                <option value={30}>30단계 · 중단 관찰</option>
-                <option value={10}>10단계 · 중단 관찰</option>
               </select>
             </label>
             <button className="primary-button" disabled={rawPending} onClick={apply}>

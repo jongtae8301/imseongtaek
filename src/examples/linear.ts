@@ -59,30 +59,32 @@ export function buildLinearRun(
   if (commands.length > MAX_OPERATIONS)
     throw new RangeError(`한 실습의 연산은 ${MAX_OPERATIONS}회까지입니다.`);
   let model = createLinearState(mode, options.capacity ?? LINEAR_CAPACITY);
-  // 표시 코드 생성 전에 입력을 검증한다. 학생 입력 문자열을 코드로 삽입하지 않는다.
+  // 입력을 검증하고, 모든 요청이 같은 삽입·삭제 코드 조각을 사용한다.
   for (const command of commands) applyLinearCommand(createLinearState(mode), command);
   const id = linearLessons[mode].id;
   const lines =
     mode === 'queue' ? ['from collections import deque', 'queue = deque()'] : ['stack = []'];
-  lines.push(
-    `CAPACITY = ${model.capacity}`,
-    '# 선언은 준비된 상태입니다. 아래 연산부터 추적합니다.',
-  );
+  lines.push(`CAPACITY = ${model.capacity}`);
   const lineMap: Record<string, number> = {};
-  const positions = commands.map((command, index) => {
+  const positions = {} as Record<
+    LinearCommand['type'],
+    { condition: number; success: number; rejected: number }
+  >;
+  for (const type of ['insert', 'remove'] as const) {
+    lines.push('', type === 'insert' ? '# 삽입 요청 · item은 입력한 값' : '# 삭제 요청');
     const condition = lines.length + 1;
-    lines.push(command.type === 'insert' ? `if len(${mode}) < CAPACITY:` : `if ${mode}:`);
+    lines.push(type === 'insert' ? `if len(${mode}) < CAPACITY:` : `if ${mode}:`);
     lines.push(
-      command.type === 'insert'
-        ? `    ${mode}.append(${command.value})`
+      type === 'insert'
+        ? `    ${mode}.append(item)`
         : `    removed = ${mode}.${mode === 'queue' ? 'popleft' : 'pop'}()`,
     );
-    lines.push('else:', `    print("${command.type === 'insert' ? '용량 초과' : '빈 구조'}")`);
-    lineMap[`operation${index + 1}.condition`] = condition;
-    lineMap[`operation${index + 1}.success`] = condition + 1;
-    lineMap[`operation${index + 1}.rejected`] = condition + 3;
-    return { condition, success: condition + 1, rejected: condition + 3 };
-  });
+    lines.push('else:', `    print("${type === 'insert' ? '용량 초과' : '빈 구조'}")`);
+    lineMap[`${type}.condition`] = condition;
+    lineMap[`${type}.success`] = condition + 1;
+    lineMap[`${type}.rejected`] = condition + 3;
+    positions[type] = { condition, success: condition + 1, rejected: condition + 3 };
+  }
   const metadata: RunMetadata = {
     exampleId: id,
     input: {
@@ -93,7 +95,7 @@ export function buildLinearRun(
       }),
       direct: options.direct ?? false,
     },
-    algorithmVersion: '1.0.0',
+    algorithmVersion: '1.1.0',
     stepSemantics: 'after-event',
     code: { id, language: 'python', lines },
     lineMap,
@@ -109,7 +111,8 @@ export function buildLinearRun(
       calls:
         '이 예제는 자료구조 메서드를 한 연산으로 관찰합니다. 메서드 내부 호출과 프레임은 집계하지 않습니다.',
       comparisons: '각 요청에서 용량 또는 비어 있는지를 검사하는 if 조건을 평가할 때 1회.',
-      assignments: '삭제 반환값을 removed에 대입할 때 1회. 준비된 선언은 제외합니다.',
+      assignments:
+        '삭제 반환값을 removed에 대입할 때 1회. 준비된 선언과 요청 입력 item은 제외합니다.',
       arithmetic: '이 예제에는 명시적으로 추적하는 산술 연산이 없습니다.',
       maxDepth: '메서드 내부 호출 깊이는 추적하지 않습니다.',
       inserts: '실제로 삽입한 값마다 1회. 가득 차서 거절된 삽입은 제외합니다.',
@@ -123,7 +126,7 @@ export function buildLinearRun(
     source: null,
     activeFrameId: null,
     frames: [],
-    globals: { removed: unset() },
+    globals: { item: unset(), removed: unset() },
     returnValue: unset(),
     returnInfo: null,
     structures: [linearStructure(model)],
@@ -146,9 +149,19 @@ export function buildLinearRun(
     `빈 ${mode === 'queue' ? '큐' : '스택'}와 용량 ${model.capacity}개를 준비했습니다. ${options.direct ? '삽입하거나 삭제할 값을 예상하고 직접 조작해 보세요.' : '다음으로 조건 검사와 삽입·삭제를 관찰하세요.'}`,
   );
   try {
-    commands.forEach((command, index) => {
-      const position = positions[index]!;
+    commands.forEach((command) => {
+      const position = positions[command.type];
       const result = applyLinearCommand(model, command);
+      const inputChanges: Change[] = [];
+      if (command.type === 'insert') {
+        inputChanges.push({
+          path: 'globals.item',
+          before: state.globals.item!,
+          after: value(command.value),
+          description: `이번 삽입 입력 item = ${command.value}`,
+        });
+        state.globals.item = value(command.value);
+      }
       state.returnValue = unset();
       state.structures = [linearStructure(model)];
       state.source = { codeId: id, line: position.condition };
@@ -157,6 +170,7 @@ export function buildLinearRun(
         state,
         'compare',
         `${command.type === 'insert' ? `저장된 원소 ${model.items.length}개가 용량 ${model.capacity}개보다 작은지` : '구조에 원소가 있는지'} 검사했습니다. 조건은 ${result.transition.action === 'reject' ? '거짓' : '참'}입니다.`,
+        inputChanges,
       );
       model = result.state;
       state.structures = [linearStructure(model, result.transition)];

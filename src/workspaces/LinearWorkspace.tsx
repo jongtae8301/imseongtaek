@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ObservationControls,
   ObservationPanels,
   useObservationView,
 } from '../components/ObservationPanels';
 import { usePlayer } from '../player/use-player';
-import { buildLinearRun, linearLessons } from '../examples/linear';
-import { examples } from '../examples/registry';
-import { MAX_OPERATIONS, parseLinearValue } from '../structures/linear';
+import { buildLinearRun, linearDemoCommands, linearLessons } from '../examples/linear';
+import {
+  LINEAR_CAPACITY,
+  MAX_LINEAR_CAPACITY,
+  MAX_OPERATIONS,
+  parseLinearValue,
+} from '../structures/linear';
 import type { LinearCommand, LinearMode } from '../structures/linear';
 import { AnalysisPanel } from '../components/AnalysisPanel';
 import { CodePanel } from '../components/CodePanel';
@@ -30,33 +34,38 @@ export function LinearWorkspace() {
   const { player, step, run, playing, index, delay } = usePlayer(initialRun);
   const [mode, setMode] = useState<LinearMode>('queue');
   const [interaction, setInteraction] = useState<Interaction>('direct');
+  const [capacity, setCapacity] = useState(LINEAR_CAPACITY);
   const [commands, setCommands] = useState<readonly LinearCommand[]>([]);
   const [input, setInput] = useState('1');
+  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const lesson = linearLessons[mode];
   const atEnd = index === (run?.steps.length ?? 1) - 1;
   const canOperate = atEnd && !playing && commands.length < MAX_OPERATIONS;
 
-  function load(nextMode: LinearMode, nextInteraction: Interaction) {
+  function load(nextMode: LinearMode, nextInteraction: Interaction, nextCapacity = capacity) {
     setMode(nextMode);
     setInteraction(nextInteraction);
+    setCapacity(nextCapacity);
     setCommands([]);
     setInput('1');
     setError('');
     player.load(
-      nextInteraction === 'direct'
-        ? buildLinearRun(nextMode, [], { direct: true })
-        : examples[nextMode === 'queue' ? 'queue-bank' : 'stack-rail'].buildRun(),
+      buildLinearRun(nextMode, nextInteraction === 'direct' ? [] : linearDemoCommands, {
+        direct: nextInteraction === 'direct',
+        capacity: nextCapacity,
+      }),
     );
   }
   function operate(command: LinearCommand) {
-    if (!canOperate) return;
+    if (!canOperate) return false;
     const nextCommands = [...commands, command];
-    const nextRun = buildLinearRun(mode, nextCommands, { direct: true });
+    const nextRun = buildLinearRun(mode, nextCommands, { direct: true, capacity });
     setCommands(nextCommands);
     setError('');
     player.load(nextRun);
     player.seek(nextRun.steps.length - 1);
+    return nextRun.steps.at(-1)?.event === command.type;
   }
   function insert() {
     if (!canOperate) return;
@@ -65,7 +74,10 @@ export function LinearWorkspace() {
       setError(parsed.error);
       return;
     }
-    operate({ type: 'insert', value: parsed.value });
+    if (operate({ type: 'insert', value: parsed.value })) {
+      setInput('');
+      inputRef.current?.focus({ preventScroll: true });
+    }
   }
   return (
     <>
@@ -97,7 +109,23 @@ export function LinearWorkspace() {
                 예제 실행
               </button>
             </div>
-            <span className="capacity-label">용량 6개 · 값 −99~99</span>
+            <label>
+              최대 용량
+              <select
+                value={capacity}
+                aria-describedby="linear-reset-note"
+                onChange={(event) => load(mode, interaction, Number(event.target.value))}
+              >
+                {Array.from({ length: MAX_LINEAR_CAPACITY }, (_, index) => index + 1).map(
+                  (size) => (
+                    <option key={size} value={size}>
+                      {size}개
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <span className="capacity-label">값 −99~99</span>
           </div>
           {interaction === 'direct' ? (
             <>
@@ -110,6 +138,7 @@ export function LinearWorkspace() {
               >
                 <label htmlFor="linear-value">삽입할 값</label>
                 <input
+                  ref={inputRef}
                   id="linear-value"
                   type="text"
                   inputMode="text"
@@ -174,16 +203,16 @@ export function LinearWorkspace() {
                 <h2>{lesson.title}</h2>
               </div>
               <p>
-                1 → 2 → 3 → 4 삽입 후 4번 삭제합니다.
+                선택한 용량에서 1 → 2 → 3 → 4 삽입, 네 번 삭제를 시도합니다.
                 <br />
                 다음 또는 자동 실행으로 진행하세요.
               </p>
               <button onClick={() => load(mode, 'example')}>예제 다시 시작</button>
             </div>
           )}
-          <p className="mode-reset-note">
-            자료구조·실습 방식 변경이나 새 실습은 실행과 기록을 초기화합니다. 직접 조작의 값 입력은
-            다음 삽입에만 적용됩니다.
+          <p className="mode-reset-note" id="linear-reset-note">
+            용량·자료구조·실습 방식 변경이나 새 실습은 실행과 기록을 초기화합니다. 직접 조작의 값
+            입력은 다음 삽입에만 적용됩니다.
           </p>
         </section>
         <details className="learning-prompt">

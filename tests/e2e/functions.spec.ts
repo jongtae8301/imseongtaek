@@ -156,28 +156,27 @@ test('팩토리얼 최소 입력과 같은 결과·다른 프레임 수', async 
   await expect(page.locator('[data-function-comparison]')).toHaveCount(0);
 });
 
-test('비교에서 한도 도달과 정상 완료를 구분하고 방식 전환을 복원', async ({ page }) => {
+test('한도 설정 없이 최대 입력을 완료하고 비교 방식 전환을 복원', async ({ page }) => {
   await page.goto('/');
   await prepareWorkspace(page);
   await choose(page, 'fibonacci');
   await page.getByRole('textbox', { name: '입력값 n' }).fill('8');
-  await page.getByRole('combobox', { name: '실행 한도', exact: true }).selectOption('50');
+  await expect(page.getByRole('combobox', { name: '실행 한도', exact: true })).toHaveCount(0);
   await apply(page);
   await end(page);
-  await expect(page.locator('.run-summary')).toContainText('한도 도달');
+  await expect(page.locator('.run-summary')).toContainText('정상 종료');
   await page.getByRole('button', { name: '같은 입력으로 재귀·반복 비교', exact: true }).click();
   await expect(page.getByRole('region', { name: '재귀·반복 비교' })).toContainText(
-    '최종 결과를 비교할 수 없습니다',
+    '정상 종료한 두 방식의 결과가 일치합니다',
   );
-  await expect(page.locator('[data-function-comparison="recursive"]')).toContainText(
-    '한도 도달 · 미완료',
-  );
+  await expect(page.locator('[data-function-comparison="recursive"]')).toContainText('정상 종료');
   await expect(page.locator('[data-function-comparison="iterative"]')).toContainText('정상 종료');
   await page.getByRole('button', { name: '반복 단계 보기', exact: true }).click();
   await end(page);
   await expect(page.locator('.run-summary')).toContainText('정상 종료');
   await expect(page.locator('[data-variable="globals.result"] dd')).toHaveText('21');
   await page.getByRole('button', { name: '재귀 단계 보기', exact: true }).click();
-  await expect(page.locator('.run-summary')).toContainText('한도 도달');
+  await expect(page.locator('.run-summary')).toContainText('정상 종료');
+  await expect(page.locator('[data-variable="globals.result"] dd')).toHaveText('21');
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
 });

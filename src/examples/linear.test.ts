@@ -46,7 +46,10 @@ describe.each<LinearMode>(['queue', 'stack'])('%s Step 실행기', (mode) => {
       const code = run.metadata.code.lines[step.source.line - 1]!;
       if (step.event === 'compare') expect(code).toMatch(/^if /);
       if (step.event === 'reject') expect(code).toContain('print(');
-      if (step.event === 'insert') expect(code).toContain('.append(0)');
+      if (step.event === 'insert') {
+        expect(code).toContain('.append(item)');
+        expect(step.globals.item).toEqual(value(0));
+      }
       if (step.event === 'remove')
         expect(code).toContain(mode === 'queue' ? '.popleft()' : '.pop()');
     }
@@ -80,6 +83,37 @@ describe.each<LinearMode>(['queue', 'stack'])('%s Step 실행기', (mode) => {
     expect(run.steps[player.getSnapshot().index]!.metrics.removes).toBe(0);
     player.next();
     expect(run.steps[player.getSnapshot().index]).toBe(after);
+  });
+  it('요청을 추가해도 코드와 지난 단계는 유지하고 삽입 입력만 복원한다', () => {
+    const first = buildLinearRun(mode, [{ type: 'insert', value: 0 }], { direct: true });
+    const commands: LinearCommand[] = [
+      { type: 'insert', value: 0 },
+      { type: 'insert', value: -7 },
+      { type: 'remove' },
+    ];
+    const run = buildLinearRun(mode, commands, { direct: true });
+    expect(run.metadata.code).toEqual(first.metadata.code);
+    expect(run.metadata.lineMap).toEqual(first.metadata.lineMap);
+    expect(run.steps.slice(0, first.steps.length)).toEqual(first.steps);
+    expect(run.steps[2]!.source).toEqual(run.steps[4]!.source);
+    expect(run.steps[3]!.globals.item).toEqual(value(-7));
+    expect(run.steps[3]!.changes).toContainEqual({
+      path: 'globals.item',
+      before: value(0),
+      after: value(-7),
+      description: '이번 삽입 입력 item = -7',
+    });
+    const player = createPlayer(run);
+    player.seek(3);
+    player.previous();
+    expect(run.steps[player.getSnapshot().index]!.globals.item).toEqual(value(0));
+    player.next();
+    expect(run.steps[player.getSnapshot().index]!.globals.item).toEqual(value(-7));
+    const many = buildLinearRun(
+      mode,
+      Array.from({ length: 40 }, () => ({ type: 'remove' })),
+    );
+    expect(many.metadata.code).toEqual(first.metadata.code);
   });
   it('실행 한도에서는 마지막으로 완료한 사건의 구조만 남긴다', () => {
     const run = buildLinearRun(mode, linearDemoCommands, { maxSteps: 3 });

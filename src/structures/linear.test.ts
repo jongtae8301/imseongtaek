@@ -59,6 +59,18 @@ describe.each<LinearMode>(['queue', 'stack'])('%s의 공통 구조 모델', (mod
     state = applyLinearCommand(state, { type: 'remove' }).state;
     expect(state.removedValues).toEqual([0, 0]);
   });
+  it('최대 용량 12개를 채우고 넘친 삽입은 거절하며 삭제 순서를 유지한다', () => {
+    let state = createLinearState(mode, 12);
+    for (let item = 0; item < 12; item++)
+      state = applyLinearCommand(state, { type: 'insert', value: item }).state;
+    expect(state.items).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    const overflow = applyLinearCommand(state, { type: 'insert', value: 12 });
+    expect(overflow.transition.action).toBe('reject');
+    expect(overflow.state).toBe(state);
+    const removed = applyLinearCommand(state, { type: 'remove' });
+    expect(removed.transition.value).toBe(mode === 'queue' ? 0 : 11);
+    expect(removed.state.items).toHaveLength(11);
+  });
 });
 
 it.each(['', ' ', '1.2', '1e1', '0x10', '100', '-100', 'NaN', '안녕'])(
@@ -75,7 +87,7 @@ it('직접 호출의 비정상 값과 잘못된 용량도 검증한다', () => {
     expect(() => applyLinearCommand(createLinearState('queue'), { type: 'insert', value })).toThrow(
       RangeError,
     );
-  for (const capacity of [0, 9, NaN, 1.1])
+  for (const capacity of [0, 13, NaN, 1.1])
     expect(() => createLinearState('queue', capacity)).toThrow(RangeError);
   expect(() =>
     applyLinearCommand(createLinearState('queue'), { type: 'unknown' } as unknown as LinearCommand),

@@ -1,6 +1,6 @@
 # 공통 Step 계약
 
-트리 거리 활동은 [트리 거리 계약](TREE_DISTANCE.md)의 `tree-distance` 구조를 추가합니다. 입력 from/to, 현재 a/b, trailA/trailB, 현재 이동 간선, 누적 distance, lca와 path를 불변 스냅샷에 담습니다. 미대입 포인터·거리·LCA는 null이며 globals에서는 unset으로 대응합니다. search는 null이고 BFS/DFS의 방문 상태를 만들지 않습니다. 기존 assign/compare/complete/limit 사건과 집계를 재사용합니다. 부모 이동과 거리 증가를 별도 Step으로 기록합니다.
+화면에서 제외하고 참고용으로 보관한 트리 거리 실행기는 [트리 거리 계약](TREE_DISTANCE.md)의 `tree-distance` 구조를 추가합니다. 입력 from/to, 현재 a/b, trailA/trailB, 현재 이동 간선, 누적 distance, lca와 path를 불변 스냅샷에 담습니다. 미대입 포인터·거리·LCA는 null이며 globals에서는 unset으로 대응합니다. search는 null이고 BFS/DFS의 방문 상태를 만들지 않습니다. 기존 assign/compare/complete/limit 사건과 집계를 재사용합니다. 부모 이동과 거리 증가를 별도 Step으로 기록합니다.
 
 이 문서는 AGENTS.md의 개발 규칙을 코드로 구체화한 계약입니다. 기획안 원문 인용이 아닙니다. 기준 구현은 `src/engine/types.ts`와 `src/engine/trace.ts`입니다.
 

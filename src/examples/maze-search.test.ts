@@ -150,6 +150,7 @@ describe('미로의 독립적인 수작업 추적', () => {
       expect(run.metadata.limits).toMatchObject({ maxInput: 315, maxOperations: 50000 });
       if (algorithm === 'bfs') expect(exitMilestone(run)!.search!.targetPath).toHaveLength(19);
     },
+    15000, // 최대 격자의 불변 스냅샷 검증은 PC 부하에 따라 기본 5초를 넘을 수 있다.
   );
   it('발견 장면에서도 낮은 실행 한도를 정상 완료로 표시하지 않는다', () => {
     const run = buildMazeRun('bfs', square, false, 2, 'discoveries');

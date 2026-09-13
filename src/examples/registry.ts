@@ -3,32 +3,9 @@ import { buildLinearRun, linearDemoCommands, linearLessons } from './linear';
 import { buildSearchRun, graphLesson } from './graph-search';
 import { graphSamples } from '../structures/graph';
 import { buildFunctionRun, functionExamples } from './functions';
-import { buildTreeDistanceRun, treeDistanceLesson } from './tree-distance';
 
 /** 실행 가능한 예제만 등록한다. 개발 예정 모듈은 docs/ROADMAP.md에서 관리한다. */
 export const examples = {
-  'tree-distance-depth': {
-    lesson: treeDistanceLesson,
-    buildRun: () =>
-      buildTreeDistanceRun({
-        graph: graphSamples.textbookTree,
-        root: 'A',
-        from: 'D',
-        to: 'E',
-        method: 'depth',
-      }),
-  },
-  'tree-distance-array': {
-    lesson: treeDistanceLesson,
-    buildRun: () =>
-      buildTreeDistanceRun({
-        graph: graphSamples.textbookTree,
-        root: 'A',
-        from: 'D',
-        to: 'E',
-        method: 'array',
-      }),
-  },
   [sumLesson.id]: { lesson: sumLesson, parseInput: parseSumInput, buildRun: buildSumRun },
   'sum-iterative': {
     lesson: functionExamples.sum.lesson,

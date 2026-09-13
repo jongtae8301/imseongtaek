@@ -78,7 +78,9 @@ test('편집 미리보기는 실행 기록과 분리되고 미적용 문자·잘
 });
 
 for (const workspace of ['그래프와 탐색', '트리와 탐색']) {
-  test(`${workspace} 비교는 BFS 큐·DFS 프레임·한도와 독립된 위치를 복원한다`, async ({ page }) => {
+  test(`${workspace} 비교는 BFS 큐·DFS 프레임·독립된 위치를 복원하고 입력 변경을 반영한다`, async ({
+    page,
+  }) => {
     await page.goto('/');
     await prepareWorkspace(page);
     await page.getByRole('button', { name: workspace }).click();
@@ -105,19 +107,20 @@ for (const workspace of ['그래프와 탐색', '트리와 탐색']) {
     await page.waitForTimeout(1100);
     await expectStep(page, 5);
     await page.getByRole('button', { name: '예제·설정', exact: true }).click();
-    await page.getByRole('combobox', { name: '실행 한도', exact: true }).selectOption('10');
+    await expect(page.getByRole('combobox', { name: '실행 한도', exact: true })).toHaveCount(0);
+    await page.getByRole('combobox', { name: '이웃 방문 순서', exact: true }).selectOption('true');
     await expectStep(page, 'empty');
     await expect(page.locator('[data-comparison]')).toHaveCount(0);
     await page.getByRole('button', { name: '탐색 준비', exact: true }).click();
     await page.getByRole('slider', { name: '실행 단계 이동' }).focus();
     await page.keyboard.press('End');
-    await expectStep(page, 9);
+    await expect(page.locator('.run-summary')).toContainText('정상 종료');
     await page.getByRole('button', { name: 'BFS·DFS 결과 비교', exact: true }).click();
     await page.getByRole('button', { name: 'DFS 단계 보기', exact: true }).click();
     await expectStep(page, 0);
     await next(page, 3);
     await page.getByRole('button', { name: 'BFS 과정', exact: true }).click();
-    await expect(page.locator('.run-summary')).toContainText('한도 도달');
+    await expect(page.locator('.run-summary')).toContainText('정상 종료');
     await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'DFS 과정', exact: true }).click();
     await expectStep(page, 3);

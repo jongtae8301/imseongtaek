@@ -10,6 +10,7 @@ export interface LinearState {
   readonly valueRange?: readonly [number, number];
 }
 export const LINEAR_CAPACITY = 6;
+export const MAX_LINEAR_CAPACITY = 12;
 export const MAX_OPERATIONS = 40;
 
 export function parseLinearValue(
@@ -26,8 +27,8 @@ export function parseLinearValue(
 
 export function createLinearState(mode: LinearMode, capacity = LINEAR_CAPACITY): LinearState {
   if (!['queue', 'stack'].includes(mode)) throw new RangeError('큐 또는 스택을 선택해야 합니다.');
-  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 8)
-    throw new RangeError('용량은 1부터 8까지여야 합니다.');
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_LINEAR_CAPACITY)
+    throw new RangeError(`용량은 1부터 ${MAX_LINEAR_CAPACITY}까지여야 합니다.`);
   return { mode, capacity, items: [], removedValues: [] };
 }
 
