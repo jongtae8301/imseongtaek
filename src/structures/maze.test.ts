@@ -31,8 +31,8 @@ it('잘못된 모양·문자·범위·벽 위 끝점을 거절한다', () => {
     ['..'],
     ['..', '.'],
     ['..', 'x.'],
-    Array<string>(8).fill('..'),
-    ['........', '........'],
+    Array<string>(16).fill('..'),
+    ['.'.repeat(22), '.'.repeat(22)],
   ])
     expect(() => validateMaze({ ...input, rows })).toThrow();
   for (const start of ['2,2', '0,1', '1,01', '9,9'])
@@ -42,13 +42,19 @@ it('격자 큐는 49개를 FIFO로 저장하고 일반 조작 큐의 8개 제한
   let queue = createTraversalQueue(49);
   for (let value = 0; value < 49; value++)
     queue = applyLinearCommand(queue, { type: 'insert', value }).state;
-  expect(applyLinearCommand(queue, { type: 'insert', value: 49 }).transition.action).toBe('reject');
+  expect(applyLinearCommand(queue, { type: 'insert', value: 0 }).transition.action).toBe('reject');
   for (let value = 0; value < 49; value++) {
     const removed = applyLinearCommand(queue, { type: 'remove' });
     expect(removed.transition.value).toBe(value);
     queue = removed.state;
   }
   expect(queue.items).toEqual([]);
-  expect(() => createTraversalQueue(50)).toThrow();
+  expect(() => createTraversalQueue(316)).toThrow();
   expect(() => createLinearState('queue', 9)).toThrow();
+  const large = createTraversalQueue(315);
+  expect(applyLinearCommand(large, { type: 'insert', value: 314 }).state.items).toEqual([314]);
+  expect(() => applyLinearCommand(large, { type: 'insert', value: 315 })).toThrow();
+  expect(() =>
+    applyLinearCommand(createLinearState('queue'), { type: 'insert', value: 100 }),
+  ).toThrow();
 });
